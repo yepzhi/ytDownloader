@@ -63,10 +63,17 @@ async def get_formats(req: URLRequest):
                         })
                     elif req.type == 'audio' and f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                         abr = f.get('abr', 0) or 0
+                        acodec = f.get('acodec', 'unknown')
+                        
+                        # Opus often reports 0 bitrate but is actually ~160kbps
+                        if 'opus' in acodec.lower() and abr == 0:
+                            abr = 160  # Assign realistic value
+                        
                         q_tag = 'fair'
                         if abr >= 128: q_tag = 'good'
-                        if abr >= 160: q_tag = 'excellent'
-                        label = f"{int(abr)}kbps ({f.get('ext')}) - {f.get('acodec', '')}"
+                        if abr >= 160 or 'opus' in acodec.lower(): q_tag = 'excellent'
+                        
+                        label = f"{int(abr)}kbps ({f.get('ext')}) - {acodec}"
                         formats.append({
                             'format_id': f['format_id'],
                             'label': label,
