@@ -50,15 +50,15 @@
             <div>
                 <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Download Type</label>
                 <div class="grid grid-cols-2 gap-3">
-                    <button id="btnVideo" onclick="setType('video')"
-                        class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400">
-                        <i data-lucide="video" class="w-5 h-5"></i>
-                        <span>Video</span>
-                    </button>
                     <button id="btnAudio" onclick="setType('audio')"
-                        class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10">
+                        class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400">
                         <i data-lucide="music" class="w-5 h-5"></i>
                         <span>Audio</span>
+                    </button>
+                    <button id="btnVideo" onclick="setType('video')"
+                        class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10">
+                        <i data-lucide="video" class="w-5 h-5"></i>
+                        <span>Video</span>
                     </button>
                 </div>
             </div>
@@ -106,7 +106,7 @@
         // Backend URL - Railway
         const API_BASE = 'https://web-production-4926.up.railway.app';
 
-        let currentType = 'video';
+        let currentType = 'audio';
         let currentFormats = [];
 
         function setType(type) {
@@ -114,12 +114,12 @@
             const btnVideo = document.getElementById('btnVideo');
             const btnAudio = document.getElementById('btnAudio');
 
-            if (type === 'video') {
-                btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
-                btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
-            } else {
+            if (type === 'audio') {
                 btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
                 btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
+            } else {
+                btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
+                btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
             }
             document.getElementById('qualityContainer').classList.add('hidden');
             document.getElementById('btnDownload').classList.add('hidden');
@@ -158,6 +158,7 @@
                 const opt = document.createElement('option');
                 opt.value = f.format_id;
                 opt.text = f.label;
+                opt.dataset.ext = f.ext || 'mp4'; // Store extension
                 select.appendChild(opt);
             });
             document.getElementById('qualityContainer').classList.remove('hidden');
@@ -184,7 +185,9 @@
 
                 if (res.ok) {
                     const blob = await res.blob();
-                    const ext = currentType === 'audio' ? 'webm' : 'mp4';
+                    const select = document.getElementById('qualitySelect');
+                    const selectedOpt = select.options[select.selectedIndex];
+                    const ext = selectedOpt.dataset.ext || (currentType === 'audio' ? 'm4a' : 'mp4');
                     const link = document.createElement('a');
                     link.href = window.URL.createObjectURL(blob);
                     link.download = `download_${Date.now()}.${ext}`;
