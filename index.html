@@ -87,6 +87,15 @@
                 <span>Search Qualities</span>
             </button>
 
+            <!-- Status Box -->
+            <div id="statusBox"
+                class="hidden p-4 rounded-lg flex items-start gap-3 bg-white/10 border border-white/20 shadow-lg">
+                <div id="statusIcon"></div>
+                <div class="flex-1">
+                    <p id="statusMessage" class="text-white text-sm font-medium"></p>
+                </div>
+            </div>
+
             <!-- Quality Select (Hidden until search) -->
             <div id="qualityContainer" class="hidden">
                 <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Select Quality</label>
@@ -112,13 +121,7 @@
                 <div id="logContent"></div>
             </div>
 
-            <!-- Status Box -->
-            <div id="statusBox" class="hidden p-4 rounded-lg flex items-start gap-3 bg-white/10 border border-white/20">
-                <div id="statusIcon"></div>
-                <div class="flex-1">
-                    <p id="statusMessage" class="text-white text-sm font-medium"></p>
-                </div>
-            </div>
+
 
         </div>
 
