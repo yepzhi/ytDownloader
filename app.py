@@ -8,8 +8,20 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import subprocess
 import json
+import socket
 
 app = FastAPI()
+
+# Startup Check
+@app.on_event("startup")
+async def startup_event():
+    print("--- STARTUP DNS CHECK ---")
+    try:
+        ip = socket.gethostbyname("www.youtube.com")
+        print(f"DNS OK: www.youtube.com -> {ip}")
+    except Exception as e:
+        print(f"DNS FAIL: {e}")
+    print("-------------------------")
 
 # CORS
 app.add_middleware(

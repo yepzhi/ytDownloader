@@ -13,16 +13,16 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# CRITICAL: Install yt-dlp directly from GitHub Master to ensure latest fixes
+# Install yt-dlp from Master
 RUN pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/master.zip
 
 COPY . .
 
-# Create a user
-RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+# Run as ROOT to avoid socket/permission issues
+# RUN useradd -m -u 1000 user
+# USER user
+# ENV HOME=/home/user \
+#     PATH=/home/user/.local/bin:$PATH
 
 EXPOSE 7860
 
