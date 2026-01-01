@@ -1,15 +1,19 @@
 FROM python:3.9-slim
 
 # Install system dependencies (FFmpeg is required for yt-dlp audio)
+# ca-certificates needed for HTTPS/SSL
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     git \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade yt-dlp to ensure latest extractors
+RUN pip install --upgrade yt-dlp
 
 COPY . .
 
