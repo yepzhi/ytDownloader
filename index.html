@@ -58,7 +58,7 @@
                     <button id="btnAudio" onclick="setType('audio')"
                         class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10">
                         <i data-lucide="music" class="w-5 h-5"></i>
-                        <span>Audio (MP3)</span>
+                        <span>Audio</span>
                     </button>
                 </div>
             </div>
@@ -70,31 +70,15 @@
                 <span>Search Qualities</span>
             </button>
 
-            <!-- Quality Select (Hidden) -->
+            <!-- Quality Select (Hidden until search) -->
             <div id="qualityContainer" class="hidden">
                 <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Select Quality</label>
                 <select id="qualitySelect"
                     class="w-full px-4 py-3 bg-gray-900/80 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs">
                 </select>
-
-                <!-- Audio Analysis Button -->
-                <button id="btnAnalyze" onclick="analyzeAudio()"
-                    class="hidden w-full mt-3 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all shadow-md flex items-center justify-center gap-2 text-sm">
-                    <i data-lucide="activity" class="w-4 h-4"></i>
-                    <span>Analyze Audio Quality</span>
-                </button>
             </div>
 
-            <!-- Analysis Result (Hidden) -->
-            <div id="analysisBox" class="hidden p-4 rounded-lg bg-black/40 border border-white/10 mt-2">
-                <div class="flex items-center gap-3 mb-2">
-                    <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
-                    <h3 class="font-bold text-white text-sm">Metadata Analysis</h3>
-                </div>
-                <div id="analysisContent" class="text-xs font-mono text-white/80 space-y-1 pl-8"></div>
-            </div>
-
-            <!-- Download Button (Hidden) -->
+            <!-- Download Button (Hidden until search) -->
             <button id="btnDownload" onclick="startDownload()"
                 class="hidden w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                 <i data-lucide="download-cloud" class="w-6 h-6"></i>
@@ -123,6 +107,7 @@
         const API_BASE = 'https://web-production-4926.up.railway.app';
 
         let currentType = 'video';
+        let currentFormats = [];
 
         function setType(type) {
             currentType = type;
@@ -139,15 +124,9 @@
             document.getElementById('qualityContainer').classList.add('hidden');
             document.getElementById('btnDownload').classList.add('hidden');
             document.getElementById('statusBox').classList.add('hidden');
-            document.getElementById('analysisBox').classList.add('hidden');
         }
 
         async function fetchQualities() {
-            if (!API_BASE) {
-                showStatus('error', '🔧 Backend is being migrated. HuggingFace blocks YouTube access. Railway deployment coming soon!');
-                return;
-            }
-
             const url = document.getElementById('urlInput').value;
             if (!url) return showStatus('error', 'Please enter a URL');
 
@@ -161,6 +140,7 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
+                    currentFormats = data.formats;
                     populateQualities(data.formats);
                     showStatus('success', `Found ${data.formats.length} formats for: ${data.title}`);
                 } else {
@@ -177,24 +157,48 @@
             list.forEach(f => {
                 const opt = document.createElement('option');
                 opt.value = f.format_id;
-                opt.text = `${f.label}`;
+                opt.text = f.label;
                 select.appendChild(opt);
             });
             document.getElementById('qualityContainer').classList.remove('hidden');
             document.getElementById('btnDownload').classList.remove('hidden');
-            if (currentType === 'audio') {
-                document.getElementById('btnAnalyze').classList.remove('hidden');
-            }
-        }
-
-        async function analyzeAudio() {
-            showStatus('loading', 'Analyzing...');
-            // Placeholder
         }
 
         async function startDownload() {
-            showStatus('loading', 'Downloading...');
-            // Placeholder
+            const url = document.getElementById('urlInput').value;
+            const format_id = document.getElementById('qualitySelect').value;
+
+            if (!url || !format_id) {
+                showStatus('error', 'Please select a format first');
+                return;
+            }
+
+            showStatus('loading', 'Starting download... This may take a moment.');
+
+            try {
+                const res = await fetch(`${API_BASE}/download`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format_id, type: currentType })
+                });
+
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const ext = currentType === 'audio' ? 'webm' : 'mp4';
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = `download_${Date.now()}.${ext}`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showStatus('success', 'Download started! Check your downloads folder.');
+                } else {
+                    const errData = await res.json();
+                    showStatus('error', errData.detail || 'Download failed');
+                }
+            } catch (e) {
+                showStatus('error', 'Download error: ' + e.message);
+            }
         }
 
         function showStatus(type, msg) {
