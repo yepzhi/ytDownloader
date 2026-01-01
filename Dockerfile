@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies (Full Ubuntu Stack)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -20,7 +20,6 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY requirements.txt .
-# Use pip through python3
 RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
 # Install yt-dlp from Master
@@ -28,9 +27,13 @@ RUN python3 -m pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/ar
 
 COPY . .
 
-# Run as ROOT
+# CRITICAL: Switch to Non-Root User (UID 1000)
+# HF Spaces often block network for Root users for security
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+
 EXPOSE 7860
 
-# Diagnostics + App Start
-# We check network connectivity (Ping ip) and DNS (Dig) before starting
-CMD ["sh", "-c", "echo '--- DIAGNOSTICS ---'; ping -c 2 8.8.8.8 || echo 'PING FAILED'; echo '--- DNS LOOKUP ---'; nslookup www.youtube.com || echo 'NSLOOKUP FAILED'; echo '--- STARTING APP ---'; uvicorn app:app --host 0.0.0.0 --port 7860"]
+CMD ["sh", "-c", "echo '--- DIAGNOSTICS (User 1000) ---'; ping -c 2 8.8.8.8 || echo 'PING FAILED'; nslookup www.youtube.com || echo 'NSLOOKUP FAILED'; echo '--- STARTING APP ---'; uvicorn app:app --host 0.0.0.0 --port 7860"]
