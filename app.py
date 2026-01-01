@@ -52,6 +52,7 @@ async def get_formats(req: URLRequest):
             if 'formats' in info:
                 for f in info['formats']:
                     if req.type == 'video' and f.get('vcodec') != 'none':
+                        height = f.get('height', 0) or 0
                         label = f"{f.get('resolution', 'Unknown')} ({f.get('ext')}) - {f.get('format_note', '')}"
                         formats.append({
                             'format_id': f['format_id'],
@@ -59,7 +60,7 @@ async def get_formats(req: URLRequest):
                             'ext': f['ext'],
                             'filesize': f.get('filesize', 0),
                             'quality': 'good',
-                            'abr': 0
+                            'height': height  # For sorting
                         })
                     elif req.type == 'audio' and f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                         abr = f.get('abr', 0) or 0
@@ -79,11 +80,14 @@ async def get_formats(req: URLRequest):
                             'label': label,
                             'ext': f['ext'],
                             'quality': q_tag,
-                            'abr': abr
+                            'abr': abr  # For sorting
                         })
             
-            # Sort by bitrate (highest first)
-            formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
+            # Sort: Video by height, Audio by bitrate (highest first)
+            if req.type == 'video':
+                formats.sort(key=lambda x: x.get('height', 0), reverse=True)
+            else:
+                formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
             
             # Add "Best Audio" option at the top for audio
             if req.type == 'audio' and formats:
