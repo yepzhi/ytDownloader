@@ -9,19 +9,50 @@ from pydantic import BaseModel
 import subprocess
 import json
 import socket
+import os
 
 app = FastAPI()
 
 # Startup Check
 @app.on_event("startup")
 async def startup_event():
-    print("--- STARTUP DNS CHECK ---")
+    print("=== DEEP DIAGNOSTICS ===")
+    
+    # 1. Check resolv.conf
+    try:
+        print("[1] /etc/resolv.conf content:")
+        with open("/etc/resolv.conf", "r") as f:
+            print(f.read())
+    except Exception as e:
+        print(f"Error reading resolv.conf: {e}")
+
+    # 2. Check TCP Connectivity to Google DNS (8.8.8.8:53) - Bypasses ICMP
+    print("[2] Testing TCP 8.8.8.8:53 (Google DNS)...")
+    try:
+        s = socket.create_connection(("8.8.8.8", 53), timeout=3)
+        print("SUCCESS: Connected to 8.8.8.8:53 (Outbound TCP OK)")
+        s.close()
+    except Exception as e:
+        print(f"FAIL: Could not connect to 8.8.8.8:53 - {e}")
+
+    # 3. Check TCP to Cloudflare (1.1.1.1:443)
+    print("[3] Testing TCP 1.1.1.1:443 (Cloudflare)...")
+    try:
+        s = socket.create_connection(("1.1.1.1", 443), timeout=3)
+        print("SUCCESS: Connected to 1.1.1.1:443")
+        s.close()
+    except Exception as e:
+        print(f"FAIL: Could not connect to 1.1.1.1:443 - {e}")
+
+    # 4. DNS Resolve
+    print("[4] DNS Resolution (www.youtube.com)...")
     try:
         ip = socket.gethostbyname("www.youtube.com")
         print(f"DNS OK: www.youtube.com -> {ip}")
     except Exception as e:
         print(f"DNS FAIL: {e}")
-    print("-------------------------")
+    
+    print("========================")
 
 # CORS
 app.add_middleware(

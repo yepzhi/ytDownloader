@@ -1,39 +1,23 @@
-FROM ubuntu:22.04
+FROM python:3.9
 
-# Avoid interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
+# Standard Python Image (Debian based)
+# Run as Root by default
 
-# Install system dependencies
+# Install deps
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
     ffmpeg \
     git \
-    curl \
-    wget \
-    dnsutils \
-    iputils-ping \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
-
-# Install yt-dlp from Master
-RUN python3 -m pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/master.zip
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/master.zip
 
 COPY . .
 
-# CRITICAL: Switch to Non-Root User (UID 1000)
-# HF Spaces often block network for Root users for security
-RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
-
 EXPOSE 7860
 
-CMD ["sh", "-c", "echo '--- DIAGNOSTICS (User 1000) ---'; ping -c 2 8.8.8.8 || echo 'PING FAILED'; nslookup www.youtube.com || echo 'NSLOOKUP FAILED'; echo '--- STARTING APP ---'; uvicorn app:app --host 0.0.0.0 --port 7860"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
