@@ -3,22 +3,19 @@ title: ytDownloader
 emoji: ⬇️
 colorFrom: purple
 colorTo: blue
-sdk: docker
+sdk: gradio
+sdk_version: 4.44.0
+python_version: "3.10"
+app_file: app.py
 pinned: false
-app_port: 7860
 ---
 
 # ytDownloader
 
 A powerful YouTube Downloader with True HQ Audio support.
-Powered by **yt-dlp** and **FastAPI**.
+Powered by **yt-dlp** and **Gradio**.
 
 ## Features
 - **Video:** Download best available resolution.
-- **Audio:** Download converted MP3 (using ffmpeg).
+- **Audio:** Download high quality audio.
 - **Quality Check:** Analyze available formats before downloading.
-
-## Tech Stack
-- **Backend:** Python (FastAPI)
-- **Engine:** yt-dlp + FFmpeg
-- **Frontend:** HTML5 + Tailwind CSS + Vanilla JS (Glassmorphism UI)

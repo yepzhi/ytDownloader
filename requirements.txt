@@ -1,7 +1,2 @@
-fastapi
-uvicorn
 yt-dlp
-python-multipart
-requests
-jinja2
-ffmpeg-python
+gradio>=4.0.0

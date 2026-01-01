@@ -1,205 +1,151 @@
-import os
-import uvicorn
+import gradio as gr
 import yt_dlp
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import subprocess
-import json
-import socket
+import tempfile
 import os
 
-app = FastAPI()
-
-# Startup Check
-@app.on_event("startup")
-async def startup_event():
-    print("=== DEEP DIAGNOSTICS ===")
+def get_formats(url, media_type):
+    """Fetch available formats for a URL"""
+    if not url:
+        return gr.update(choices=[], value=None), "⚠️ Please enter a URL"
     
-    # 1. Check resolv.conf
     try:
-        print("[1] /etc/resolv.conf content:")
-        with open("/etc/resolv.conf", "r") as f:
-            print(f.read())
-    except Exception as e:
-        print(f"Error reading resolv.conf: {e}")
-
-    # 2. Check TCP Connectivity to Google DNS (8.8.8.8:53) - Bypasses ICMP
-    print("[2] Testing TCP 8.8.8.8:53 (Google DNS)...")
-    try:
-        s = socket.create_connection(("8.8.8.8", 53), timeout=3)
-        print("SUCCESS: Connected to 8.8.8.8:53 (Outbound TCP OK)")
-        s.close()
-    except Exception as e:
-        print(f"FAIL: Could not connect to 8.8.8.8:53 - {e}")
-
-    # 3. Check TCP to Cloudflare (1.1.1.1:443)
-    print("[3] Testing TCP 1.1.1.1:443 (Cloudflare)...")
-    try:
-        s = socket.create_connection(("1.1.1.1", 443), timeout=3)
-        print("SUCCESS: Connected to 1.1.1.1:443")
-        s.close()
-    except Exception as e:
-        print(f"FAIL: Could not connect to 1.1.1.1:443 - {e}")
-
-    # 4. DNS Resolve
-    print("[4] DNS Resolution (www.youtube.com)...")
-    try:
-        ip = socket.gethostbyname("www.youtube.com")
-        print(f"DNS OK: www.youtube.com -> {ip}")
-    except Exception as e:
-        print(f"DNS FAIL: {e}")
-    
-    print("========================")
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class URLRequest(BaseModel):
-    url: str
-    type: str = "video"
-
-class DownloadRequest(BaseModel):
-    url: str
-    format_id: str
-    type: str = "video"
-
-class AnalyzeRequest(BaseModel):
-    url: str
-    format_id: str
-
-# Shared yt-dlp options
-def get_ydl_opts():
-    return {
-        'quiet': True, 
-        'no_warnings': True,
-        'force_ipv4': True, 
-        'socket_timeout': 15,
-    }
-
-@app.get("/")
-async def read_root():
-    return FileResponse('index.html')
-
-@app.post("/formats")
-async def get_formats(req: URLRequest):
-    try:
-        with yt_dlp.YoutubeDL(get_ydl_opts()) as ydl:
-            info = ydl.extract_info(req.url, download=False)
+        ydl_opts = {'quiet': True, 'no_warnings': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
             
             formats = []
             if 'formats' in info:
-                # Filter useful formats
                 for f in info['formats']:
-                    # Video
-                    if req.type == 'video' and f.get('vcodec') != 'none':
-                        label = f"{f.get('resolution', 'Unknown')} ({f.get('ext')}) - {f.get('format_note', '')}"
-                        formats.append({
-                            'format_id': f['format_id'],
-                            'label': label,
-                            'ext': f['ext'],
-                            'filesize': f.get('filesize', 0),
-                            'quality': 'good' 
-                        })
-                    # Audio
-                    elif req.type == 'audio' and f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                        # Estimate quality from ABR
-                        abr = f.get('abr', 0)
-                        q_tag = 'fair'
-                        if abr >= 128: q_tag = 'good'
-                        if abr >= 192: q_tag = 'excellent'
-                        
+                    if media_type == 'video' and f.get('vcodec') != 'none':
+                        abr = f.get('abr', 0) or 0
+                        vbr = f.get('vbr', 0) or 0
+                        label = f"{f.get('resolution', 'N/A')} ({f.get('ext')}) - {f.get('format_note', '')}"
+                        formats.append((label, f['format_id']))
+                    elif media_type == 'audio' and f.get('acodec') != 'none' and f.get('vcodec') == 'none':
+                        abr = f.get('abr', 0) or 0
                         label = f"{int(abr)}kbps ({f.get('ext')})"
-                        formats.append({
-                            'format_id': f['format_id'],
-                            'label': label,
-                            'ext': f['ext'],
-                            'quality': q_tag
-                        })
+                        formats.append((label, f['format_id']))
             
-            # Sort: Best quality first
-            formats.reverse()
-            return {"formats": formats, "title": info.get('title', 'Video')}
+            formats.reverse()  # Best first
+            title = info.get('title', 'Video')
+            return gr.update(choices=formats, value=formats[0][1] if formats else None), f"✅ Found {len(formats)} formats for: {title}"
             
     except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return gr.update(choices=[], value=None), f"❌ Error: {str(e)}"
 
-@app.post("/download")
-async def download_video(req: DownloadRequest):
-    # Streaming Download
-    # For audio, we might need to instruct yt-dlp to extract-audio pipe?
-    # Streaming conversion is tricky. 
-    # Best reliable way for spaces: Download standard format to stdout.
-    
-    cmd = [
-        "yt-dlp", 
-        "--force-ipv4",
-        "-f", req.format_id,
-        "-o", "-", # Pipe to stdout
-        req.url
-    ]
-    
-    # If audio requested and we want MP3 conversion, piping is complex because 
-    # yt-dlp can't easily pipe converted output.
-    # We will just download the raw stream requested (e.g. m4a/opus) 
-    # Frontend handles naming it .mp3? No, better serve real file.
-    # For now, simplistic streaming of the Source Format selected.
+def analyze_format(url, format_id):
+    """Analyze audio quality of a format"""
+    if not url or not format_id:
+        return "⚠️ Please search for formats first"
     
     try:
-        def iterfile():
-            with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
-                while True:
-                    chunk = proc.stdout.read(65536)
-                    if not chunk:
-                        break
-                    yield chunk
-                    
-        return StreamingResponse(iterfile(), media_type="application/octet-stream")
-
+        ydl_opts = {'quiet': True, 'no_warnings': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            tgt = next((f for f in info['formats'] if f['format_id'] == format_id), None)
+            
+            if not tgt:
+                return "❌ Format not found"
+            
+            abr = tgt.get('abr', 0) or 0
+            asr = tgt.get('asr', 0) or 0
+            acodec = tgt.get('acodec', 'unknown')
+            
+            quality = "Fair"
+            if abr >= 128: quality = "Good"
+            if abr >= 192: quality = "Excellent"
+            
+            return f"""
+📊 **Audio Analysis**
+- **Bitrate:** {int(abr)} kbps
+- **Sample Rate:** {int(asr)} Hz
+- **Codec:** {acodec}
+- **Quality:** {quality}
+"""
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return f"❌ Error: {str(e)}"
 
-@app.post("/analyze-audio")
-async def analyze_audio(req: AnalyzeRequest):
+def download_media(url, format_id, media_type):
+    """Download the selected format"""
+    if not url or not format_id:
+        return None, "⚠️ Please search and select a format first"
+    
     try:
-        # Fetch Real Metadata using Format ID
-        with yt_dlp.YoutubeDL(get_ydl_opts()) as ydl:
-            info = ydl.extract_info(req.url, download=False)
+        temp_dir = tempfile.mkdtemp()
+        output_template = os.path.join(temp_dir, '%(title)s.%(ext)s')
+        
+        ydl_opts = {
+            'format': format_id,
+            'outtmpl': output_template,
+            'quiet': True,
+        }
+        
+        # For audio, extract and convert to mp3
+        if media_type == 'audio':
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '320',
+            }]
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        
+        # Find the downloaded file
+        files = os.listdir(temp_dir)
+        if files:
+            filepath = os.path.join(temp_dir, files[0])
+            return filepath, f"✅ Download Complete: {files[0]}"
+        else:
+            return None, "❌ Download failed"
             
-            # Find specific format
-            tgt_format = next((f for f in info['formats'] if f['format_id'] == req.format_id), None)
-            
-            if not tgt_format:
-                return {"error": "Format not found"}
-                
-            abr = tgt_format.get('abr', 0)
-            asr = tgt_format.get('asr', 0)
-            acodec = tgt_format.get('acodec', 'unknown')
-            
-            quality = "fair"
-            if abr >= 128: quality = "good"
-            if abr >= 160: quality = "excellent"
-            
-            return {
-                "analysis": {
-                    "quality": quality,
-                    "bitrate": f"{int(abr)} kbps (Variable)",
-                    "sample_rate": f"{int(asr)} Hz",
-                    "codec": acodec,
-                    "distortion": "Not checked (Requires full download)" 
-                }
-            }
     except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+        return None, f"❌ Error: {str(e)}"
+
+# Build UI
+with gr.Blocks(theme=gr.themes.Soft(), title="ytDownloader") as app:
+    gr.Markdown("""
+    # ⬇️ ytDownloader
+    ### Download True HQ Audio & Video from YouTube
+    """)
+    
+    with gr.Row():
+        url_input = gr.Textbox(label="YouTube URL", placeholder="https://www.youtube.com/watch?v=...", scale=3)
+        media_type = gr.Radio(["video", "audio"], label="Type", value="video", scale=1)
+    
+    search_btn = gr.Button("🔍 Search Formats", variant="primary")
+    status_box = gr.Markdown("Enter a URL and click Search")
+    
+    format_dropdown = gr.Dropdown(label="Select Format", choices=[], interactive=True)
+    
+    with gr.Row():
+        analyze_btn = gr.Button("📊 Analyze Quality")
+        download_btn = gr.Button("⬇️ Download", variant="primary")
+    
+    analysis_box = gr.Markdown("")
+    download_output = gr.File(label="Downloaded File")
+    download_status = gr.Markdown("")
+    
+    # Events
+    search_btn.click(
+        fn=get_formats,
+        inputs=[url_input, media_type],
+        outputs=[format_dropdown, status_box]
+    )
+    
+    analyze_btn.click(
+        fn=analyze_format,
+        inputs=[url_input, format_dropdown],
+        outputs=[analysis_box]
+    )
+    
+    download_btn.click(
+        fn=download_media,
+        inputs=[url_input, format_dropdown, media_type],
+        outputs=[download_output, download_status]
+    )
+    
+    gr.Markdown("---\n*Powered by yt-dlp • Portfolio Project @yepzhi*")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    app.launch()
