@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ytDownloader | HQ Audio & Video</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl glass rounded-2xl shadow-2xl p-8">
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div
+                class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full mb-4 shadow-lg animate-pulse">
+                <i data-lucide="download" class="w-8 h-8 text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white mb-2 tracking-tight">ytDownloader</h1>
+            <p class="text-white/60 text-sm">Download True HQ Audio/Video from YouTube</p>
+        </div>
+
+        <div class="space-y-6">
+
+            <!-- URL Input -->
+            <div>
+                <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Video URL</label>
+                <div class="relative">
+                    <input type="text" id="urlInput"
+                        class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all font-mono text-sm"
+                        placeholder="https://www.youtube.com/watch?v=...">
+                    <div class="absolute right-3 top-3.5 text-white/50">
+                        <i data-lucide="link" class="w-5 h-5"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Type Selection -->
+            <div>
+                <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Download Type</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="btnVideo" onclick="setType('video')"
+                        class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400">
+                        <i data-lucide="video" class="w-5 h-5"></i>
+                        <span>Video</span>
+                    </button>
+                    <button id="btnAudio" onclick="setType('audio')"
+                        class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10">
+                        <i data-lucide="music" class="w-5 h-5"></i>
+                        <span>Audio (MP3)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Button -->
+            <button id="btnSearch" onclick="fetchQualities()"
+                class="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                <i data-lucide="search" class="w-5 h-5"></i>
+                <span>Search Qualities</span>
+            </button>
+
+            <!-- Quality Select (Hidden) -->
+            <div id="qualityContainer" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Select Quality</label>
+                <select id="qualitySelect"
+                    class="w-full px-4 py-3 bg-gray-900/80 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs">
+                </select>
+            </div>
+
+            <!-- Download Button (Hidden) -->
+            <button id="btnDownload" onclick="startDownload()"
+                class="hidden w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 animate-in zoom-in duration-300">
+                <i data-lucide="download-cloud" class="w-6 h-6"></i>
+                <span class="text-lg">DOWNLOAD NOW</span>
+            </button>
+
+            <!-- Status Box -->
+            <div id="statusBox" class="hidden p-4 rounded-lg flex items-start gap-3 bg-white/10 border border-white/20">
+                <div id="statusIcon"></div>
+                <div class="flex-1">
+                    <p id="statusMessage" class="text-white text-sm font-medium"></p>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-8 text-center text-white/30 text-xs font-mono">
+            Powered by yt-dlp • Portfolio Project
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let currentType = 'video';
+        let formats = [];
+
+        function setType(type) {
+            currentType = type;
+
+            // UI Toggle
+            const btnVideo = document.getElementById('btnVideo');
+            const btnAudio = document.getElementById('btnAudio');
+
+            if (type === 'video') {
+                btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
+                btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
+            } else {
+                btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
+                btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
+            }
+
+            // Reset
+            document.getElementById('qualityContainer').classList.add('hidden');
+            document.getElementById('btnDownload').classList.add('hidden');
+            document.getElementById('statusBox').classList.add('hidden');
+        }
+
+        async function fetchQualities() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) return showStatus('error', 'Please enter a URL');
+
+            showStatus('loading', 'Scanning URL...');
+            document.getElementById('btnSearch').disabled = true;
+
+            try {
+                const res = await fetch('/formats', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, type: currentType })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    populateQualities(data.formats);
+                    showStatus('success', `Found ${data.formats.length} formats for: ${data.title}`);
+                } else {
+                    showStatus('error', data.detail || 'Failed to fetch');
+                }
+            } catch (e) {
+                showStatus('error', 'Connection Failed');
+            } finally {
+                document.getElementById('btnSearch').disabled = false;
+            }
+        }
+
+        function populateQualities(list) {
+            const select = document.getElementById('qualitySelect');
+            select.innerHTML = '';
+
+            list.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.format_id;
+                opt.text = `${f.label} [${(f.filesize / 1024 / 1024).toFixed(1)} MB]`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('qualityContainer').classList.remove('hidden');
+            document.getElementById('btnDownload').classList.remove('hidden');
+        }
+
+        async function startDownload() {
+            const url = document.getElementById('urlInput').value;
+            const format_id = document.getElementById('qualitySelect').value;
+
+            showStatus('loading', 'Starting Stream... Check your downloads folder!');
+
+            // Trigger download via browser navigation or fetch blob
+            // For streaming response, prefer direct form submit or fetch blob
+
+            try {
+                const res = await fetch('/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format_id, type: currentType })
+                });
+
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+
+                    // Guess Extension
+                    const ext = currentType === 'audio' ? 'mp3' : 'mp4';
+                    link.download = `download_${Date.now()}.${ext}`;
+                    link.click();
+                    showStatus('success', 'Download Complete!');
+                } else {
+                    showStatus('error', 'Download Failed');
+                }
+            } catch (e) {
+                showStatus('error', 'Stream Error');
+            }
+        }
+
+        function showStatus(type, msg) {
+            const box = document.getElementById('statusBox');
+            const icon = document.getElementById('statusIcon');
+            const text = document.getElementById('statusMessage');
+
+            box.classList.remove('hidden');
+            text.textContent = msg;
+
+            // Reset Colors
+            box.className = "p-4 rounded-lg flex items-start gap-3 border transition-all duration-300";
+
+            if (type === 'loading') {
+                box.classList.add('bg-blue-500/20', 'border-blue-500/50');
+                icon.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 text-blue-400 animate-spin"></i>';
+            } else if (type === 'success') {
+                box.classList.add('bg-green-500/20', 'border-green-500/50');
+                icon.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>';
+            } else {
+                box.classList.add('bg-red-500/20', 'border-red-500/50');
+                icon.innerHTML = '<i data-lucide="alert-circle" class="w-5 h-5 text-red-400"></i>';
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+
+</html>
