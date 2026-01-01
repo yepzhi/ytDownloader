@@ -112,7 +112,7 @@ async def download_video(req: DownloadRequest):
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': '320',
+                    'preferredquality': '0',  # VBR best quality (~192-256kbps, honest)
                 }],
             }
             
