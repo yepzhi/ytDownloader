@@ -1,20 +1,16 @@
----
-title: ytDownloader
-emoji: ⬇️
-colorFrom: purple
-colorTo: blue
-sdk: gradio
-python_version: "3.10"
-app_file: app.py
-pinned: false
----
-
 # ytDownloader
 
-A powerful YouTube Downloader with True HQ Audio support.
-Powered by **yt-dlp** and **Gradio**.
+YouTube Downloader with HQ Audio support.
 
-## Features
-- **Video:** Download best available resolution.
-- **Audio:** Download high quality audio.
-- **Quality Check:** Analyze available formats before downloading.
+## Frontend
+Hosted on GitHub Pages: `yepzhi.github.io/ytDownloader`
+
+## Backend
+Hosted on Railway (FastAPI + yt-dlp)
+
+## Deploy to Railway
+1. Go to [railway.app](https://railway.app)
+2. New Project > Deploy from GitHub Repo
+3. Select `yepzhi/ytDownloader`
+4. Railway auto-detects Procfile
+5. Done!

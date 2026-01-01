@@ -1,2 +1,4 @@
+fastapi
+uvicorn
 yt-dlp
-gradio>=4.0.0
+python-multipart
