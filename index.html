@@ -108,6 +108,7 @@
 
         let currentType = 'audio';
         let currentFormats = [];
+        let currentTitle = 'download';
 
         function setType(type) {
             currentType = type;
@@ -141,6 +142,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     currentFormats = data.formats;
+                    currentTitle = data.title || 'download';
                     populateQualities(data.formats);
                     showStatus('success', `Found ${data.formats.length} formats for: ${data.title}`);
                 } else {
@@ -188,9 +190,11 @@
                     const select = document.getElementById('qualitySelect');
                     const selectedOpt = select.options[select.selectedIndex];
                     const ext = selectedOpt.dataset.ext || (currentType === 'audio' ? 'm4a' : 'mp4');
+                    // Sanitize title for filename
+                    const safeTitle = currentTitle.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim().substring(0, 100);
                     const link = document.createElement('a');
                     link.href = window.URL.createObjectURL(blob);
-                    link.download = `download_${Date.now()}.${ext}`;
+                    link.download = `${safeTitle}.${ext}`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
