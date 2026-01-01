@@ -76,6 +76,22 @@
                 <select id="qualitySelect"
                     class="w-full px-4 py-3 bg-gray-900/80 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs">
                 </select>
+
+                <!-- Audio Analysis Button -->
+                <button id="btnAnalyze" onclick="analyzeAudio()"
+                    class="hidden w-full mt-3 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all shadow-md flex items-center justify-center gap-2 text-sm">
+                    <i data-lucide="activity" class="w-4 h-4"></i>
+                    <span>Analyze Audio Quality</span>
+                </button>
+            </div>
+
+            <!-- Analysis Result (Hidden) -->
+            <div id="analysisBox" class="hidden p-4 rounded-lg bg-black/40 border border-white/10 mt-2">
+                <div class="flex items-center gap-3 mb-2">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+                    <h3 class="font-bold text-white text-sm">Metadata Analysis</h3>
+                </div>
+                <div id="analysisContent" class="text-xs font-mono text-white/80 space-y-1 pl-8"></div>
             </div>
 
             <!-- Download Button (Hidden) -->
@@ -96,12 +112,15 @@
         </div>
 
         <div class="mt-8 text-center text-white/30 text-xs font-mono">
-            Powered by yt-dlp • Portfolio Project
+            Powered by yt-dlp • Portfolio Project @yepzhi
         </div>
     </div>
 
     <script>
         lucide.createIcons();
+
+        // Backend URL (HF Space)
+        const API_BASE = 'https://yepzhi-ytdownloader.hf.space';
 
         let currentType = 'video';
         let formats = [];
@@ -116,6 +135,7 @@
             if (type === 'video') {
                 btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
                 btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
+                document.getElementById('btnAnalyze').classList.add('hidden');
             } else {
                 btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
                 btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
@@ -125,6 +145,7 @@
             document.getElementById('qualityContainer').classList.add('hidden');
             document.getElementById('btnDownload').classList.add('hidden');
             document.getElementById('statusBox').classList.add('hidden');
+            document.getElementById('analysisBox').classList.add('hidden');
         }
 
         async function fetchQualities() {
@@ -135,7 +156,7 @@
             document.getElementById('btnSearch').disabled = true;
 
             try {
-                const res = await fetch('/formats', {
+                const res = await fetch(`${API_BASE}/formats`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, type: currentType })
@@ -150,7 +171,7 @@
                     showStatus('error', data.detail || 'Failed to fetch');
                 }
             } catch (e) {
-                showStatus('error', 'Connection Failed');
+                showStatus('error', 'Connection Failed. Backend might be sleeping.');
             } finally {
                 document.getElementById('btnSearch').disabled = false;
             }
@@ -163,12 +184,52 @@
             list.forEach(f => {
                 const opt = document.createElement('option');
                 opt.value = f.format_id;
-                opt.text = `${f.label} [${(f.filesize / 1024 / 1024).toFixed(1)} MB]`;
+                opt.text = `${f.label} [${(f.filesize / 1024 / 1024).toFixed(1)} MB] - ${f.quality.toUpperCase()}`;
                 select.appendChild(opt);
             });
 
             document.getElementById('qualityContainer').classList.remove('hidden');
             document.getElementById('btnDownload').classList.remove('hidden');
+
+            if (currentType === 'audio') {
+                document.getElementById('btnAnalyze').classList.remove('hidden');
+            } else {
+                document.getElementById('btnAnalyze').classList.add('hidden');
+            }
+        }
+
+        async function analyzeAudio() {
+            const url = document.getElementById('urlInput').value;
+            const format_id = document.getElementById('qualitySelect').value;
+
+            document.getElementById('btnAnalyze').innerText = "Analyzing...";
+
+            try {
+                const res = await fetch(`${API_BASE}/analyze-audio`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format_id })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    const info = data.analysis;
+                    const content = `
+                        <div>Bitrate: <span class="text-green-400">${info.bitrate}</span></div>
+                        <div>Sample Rate: <span class="text-blue-400">${info.sample_rate}</span></div>
+                        <div>Codec: ${info.codec}</div>
+                        <div>Prediction: <span class="${info.quality === 'excellent' ? 'text-green-400' : 'text-yellow-400'} font-bold">${info.quality.toUpperCase()}</span></div>
+                    `;
+                    document.getElementById('analysisContent').innerHTML = content;
+                    document.getElementById('analysisBox').classList.remove('hidden');
+                }
+            } catch (e) {
+                showStatus('error', "Analysis failed");
+            } finally {
+                document.getElementById('btnAnalyze').innerHTML = '<i data-lucide="activity" class="w-4 h-4"></i><span>Analyze Audio Quality</span>';
+                lucide.createIcons();
+            }
         }
 
         async function startDownload() {
@@ -177,11 +238,8 @@
 
             showStatus('loading', 'Starting Stream... Check your downloads folder!');
 
-            // Trigger download via browser navigation or fetch blob
-            // For streaming response, prefer direct form submit or fetch blob
-
             try {
-                const res = await fetch('/download', {
+                const res = await fetch(`${API_BASE}/download`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, format_id, type: currentType })
@@ -193,7 +251,7 @@
                     link.href = window.URL.createObjectURL(blob);
 
                     // Guess Extension
-                    const ext = currentType === 'audio' ? 'mp3' : 'mp4';
+                    const ext = currentType === 'audio' ? 'webm' : 'mp4'; // Raw streams usually webm/m4a
                     link.download = `download_${Date.now()}.${ext}`;
                     link.click();
                     showStatus('success', 'Download Complete!');
