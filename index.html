@@ -187,9 +187,8 @@
 
                 if (res.ok) {
                     const blob = await res.blob();
-                    const select = document.getElementById('qualitySelect');
-                    const selectedOpt = select.options[select.selectedIndex];
-                    const ext = selectedOpt.dataset.ext || (currentType === 'audio' ? 'm4a' : 'mp4');
+                    // Audio is always MP3 now (backend converts), Video uses original ext
+                    const ext = currentType === 'audio' ? 'mp3' : 'mp4';
                     // Sanitize title for filename
                     const safeTitle = currentTitle.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim().substring(0, 100);
                     const link = document.createElement('a');

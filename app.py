@@ -95,23 +95,69 @@ async def get_formats(req: URLRequest):
 
 @app.post("/download")
 async def download_video(req: DownloadRequest):
-    cmd = [
-        "yt-dlp", 
-        "-f", req.format_id,
-        "-o", "-",
-        req.url
-    ]
+    import tempfile
+    import os
+    import glob
     
     try:
-        def iterfile():
-            with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
-                while True:
-                    chunk = proc.stdout.read(65536)
-                    if not chunk:
-                        break
-                    yield chunk
-                    
-        return StreamingResponse(iterfile(), media_type="application/octet-stream")
+        # For audio: download best and convert to MP3
+        if req.type == 'audio':
+            temp_dir = tempfile.mkdtemp()
+            output_template = os.path.join(temp_dir, 'audio')
+            
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': output_template,
+                'quiet': True,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '320',
+                }],
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([req.url])
+            
+            # Find the MP3 file
+            mp3_files = glob.glob(os.path.join(temp_dir, '*.mp3'))
+            if mp3_files:
+                filepath = mp3_files[0]
+                
+                def iterfile():
+                    with open(filepath, 'rb') as f:
+                        while chunk := f.read(65536):
+                            yield chunk
+                    # Cleanup after streaming
+                    import shutil
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                
+                return StreamingResponse(
+                    iterfile(), 
+                    media_type="audio/mpeg",
+                    headers={"Content-Disposition": "attachment; filename=audio.mp3"}
+                )
+            else:
+                raise HTTPException(status_code=500, detail="MP3 conversion failed")
+        
+        else:
+            # Video: stream directly
+            cmd = [
+                "yt-dlp", 
+                "-f", req.format_id,
+                "-o", "-",
+                req.url
+            ]
+            
+            def iterfile():
+                with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
+                    while True:
+                        chunk = proc.stdout.read(65536)
+                        if not chunk:
+                            break
+                        yield chunk
+                        
+            return StreamingResponse(iterfile(), media_type="application/octet-stream")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
