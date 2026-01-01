@@ -1,11 +1,13 @@
 FROM python:3.10
 
 # Install system dependencies
+# ca-certificates is CRITICAL for HTTPS/DNS over TLS etc.
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     git \
     dnsutils \
     iputils-ping \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -18,12 +20,7 @@ RUN pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/maste
 
 COPY . .
 
-# Run as ROOT to avoid socket/permission issues
-# RUN useradd -m -u 1000 user
-# USER user
-# ENV HOME=/home/user \
-#     PATH=/home/user/.local/bin:$PATH
-
+# Run as ROOT
 EXPOSE 7860
 
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
