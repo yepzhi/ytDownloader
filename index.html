@@ -71,7 +71,7 @@
             </button>
 
             <!-- Quality Select (Hidden) -->
-            <div id="qualityContainer" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div id="qualityContainer" class="hidden">
                 <label class="block text-white font-medium mb-2 text-sm uppercase tracking-wider">Select Quality</label>
                 <select id="qualitySelect"
                     class="w-full px-4 py-3 bg-gray-900/80 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs">
@@ -96,7 +96,7 @@
 
             <!-- Download Button (Hidden) -->
             <button id="btnDownload" onclick="startDownload()"
-                class="hidden w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 animate-in zoom-in duration-300">
+                class="hidden w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                 <i data-lucide="download-cloud" class="w-6 h-6"></i>
                 <span class="text-lg">DOWNLOAD NOW</span>
             </button>
@@ -119,29 +119,24 @@
     <script>
         lucide.createIcons();
 
-        // Backend URL (HF Space)
-        const API_BASE = 'https://yepzhi-ytdownloader.hf.space';
+        // Backend URL - TO BE UPDATED when Railway backend is live
+        // For now, show offline message
+        const API_BASE = null; // Set to your Railway URL when ready
 
         let currentType = 'video';
-        let formats = [];
 
         function setType(type) {
             currentType = type;
-
-            // UI Toggle
             const btnVideo = document.getElementById('btnVideo');
             const btnAudio = document.getElementById('btnAudio');
-
+            
             if (type === 'video') {
                 btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
                 btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
-                document.getElementById('btnAnalyze').classList.add('hidden');
             } else {
                 btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
                 btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
             }
-
-            // Reset
             document.getElementById('qualityContainer').classList.add('hidden');
             document.getElementById('btnDownload').classList.add('hidden');
             document.getElementById('statusBox').classList.add('hidden');
@@ -149,21 +144,23 @@
         }
 
         async function fetchQualities() {
+            if (!API_BASE) {
+                showStatus('error', '🔧 Backend is being migrated. HuggingFace blocks YouTube access. Railway deployment coming soon!');
+                return;
+            }
+            
             const url = document.getElementById('urlInput').value;
             if (!url) return showStatus('error', 'Please enter a URL');
 
             showStatus('loading', 'Scanning URL...');
-            document.getElementById('btnSearch').disabled = true;
 
             try {
                 const res = await fetch(`${API_BASE}/formats`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ url, type: currentType })
                 });
-
                 const data = await res.json();
-
                 if (res.ok) {
                     populateQualities(data.formats);
                     showStatus('success', `Found ${data.formats.length} formats for: ${data.title}`);
@@ -171,109 +168,43 @@
                     showStatus('error', data.detail || 'Failed to fetch');
                 }
             } catch (e) {
-                showStatus('error', 'Connection Failed. Backend might be sleeping.');
-            } finally {
-                document.getElementById('btnSearch').disabled = false;
+                showStatus('error', 'Connection Failed');
             }
         }
 
         function populateQualities(list) {
             const select = document.getElementById('qualitySelect');
             select.innerHTML = '';
-
             list.forEach(f => {
                 const opt = document.createElement('option');
                 opt.value = f.format_id;
-                opt.text = `${f.label} [${(f.filesize / 1024 / 1024).toFixed(1)} MB] - ${f.quality.toUpperCase()}`;
+                opt.text = `${f.label}`;
                 select.appendChild(opt);
             });
-
             document.getElementById('qualityContainer').classList.remove('hidden');
             document.getElementById('btnDownload').classList.remove('hidden');
-
             if (currentType === 'audio') {
                 document.getElementById('btnAnalyze').classList.remove('hidden');
-            } else {
-                document.getElementById('btnAnalyze').classList.add('hidden');
             }
         }
 
         async function analyzeAudio() {
-            const url = document.getElementById('urlInput').value;
-            const format_id = document.getElementById('qualitySelect').value;
-
-            document.getElementById('btnAnalyze').innerText = "Analyzing...";
-
-            try {
-                const res = await fetch(`${API_BASE}/analyze-audio`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, format_id })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    const info = data.analysis;
-                    const content = `
-                        <div>Bitrate: <span class="text-green-400">${info.bitrate}</span></div>
-                        <div>Sample Rate: <span class="text-blue-400">${info.sample_rate}</span></div>
-                        <div>Codec: ${info.codec}</div>
-                        <div>Prediction: <span class="${info.quality === 'excellent' ? 'text-green-400' : 'text-yellow-400'} font-bold">${info.quality.toUpperCase()}</span></div>
-                    `;
-                    document.getElementById('analysisContent').innerHTML = content;
-                    document.getElementById('analysisBox').classList.remove('hidden');
-                }
-            } catch (e) {
-                showStatus('error', "Analysis failed");
-            } finally {
-                document.getElementById('btnAnalyze').innerHTML = '<i data-lucide="activity" class="w-4 h-4"></i><span>Analyze Audio Quality</span>';
-                lucide.createIcons();
-            }
+            showStatus('loading', 'Analyzing...');
+            // Placeholder
         }
 
         async function startDownload() {
-            const url = document.getElementById('urlInput').value;
-            const format_id = document.getElementById('qualitySelect').value;
-
-            showStatus('loading', 'Starting Stream... Check your downloads folder!');
-
-            try {
-                const res = await fetch(`${API_BASE}/download`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, format_id, type: currentType })
-                });
-
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const link = document.createElement('a');
-                    link.href = window.URL.createObjectURL(blob);
-
-                    // Guess Extension
-                    const ext = currentType === 'audio' ? 'webm' : 'mp4'; // Raw streams usually webm/m4a
-                    link.download = `download_${Date.now()}.${ext}`;
-                    link.click();
-                    showStatus('success', 'Download Complete!');
-                } else {
-                    showStatus('error', 'Download Failed');
-                }
-            } catch (e) {
-                showStatus('error', 'Stream Error');
-            }
+            showStatus('loading', 'Downloading...');
+            // Placeholder
         }
 
         function showStatus(type, msg) {
             const box = document.getElementById('statusBox');
             const icon = document.getElementById('statusIcon');
             const text = document.getElementById('statusMessage');
-
             box.classList.remove('hidden');
             text.textContent = msg;
-
-            // Reset Colors
             box.className = "p-4 rounded-lg flex items-start gap-3 border transition-all duration-300";
-
             if (type === 'loading') {
                 box.classList.add('bg-blue-500/20', 'border-blue-500/50');
                 icon.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 text-blue-400 animate-spin"></i>';
