@@ -1,7 +1,6 @@
 FROM python:3.10
 
 # Install system dependencies
-# Using full image, but ensure ffmpeg is there.
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     git \
@@ -13,7 +12,9 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --upgrade yt-dlp
+
+# CRITICAL: Install yt-dlp directly from GitHub Master to ensure latest fixes
+RUN pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/master.zip
 
 COPY . .
 

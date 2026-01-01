@@ -38,7 +38,7 @@ def get_ydl_opts():
     return {
         'quiet': True, 
         'no_warnings': True,
-        'force_ipv4': True, # Fix network/DNS issues on HF Spaces
+        # 'force_ipv4': True,  <-- REMOVED (Letting OS decide)
         'socket_timeout': 15,
     }
 
