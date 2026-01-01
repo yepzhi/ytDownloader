@@ -1,7 +1,6 @@
 FROM python:3.9
 
 # Standard Python Image (Debian based)
-# Run as Root by default
 
 # Install deps
 RUN apt-get update && apt-get install -y \
@@ -14,7 +13,8 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/master.zip
+# Switch back to PyPI for build stability (GitHub direct often fails in restricted builds)
+RUN pip install --upgrade yt-dlp
 
 COPY . .
 
