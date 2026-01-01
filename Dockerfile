@@ -1,23 +1,23 @@
-FROM python:3.9-slim
+FROM python:3.10
 
-# Install system dependencies (FFmpeg is required for yt-dlp audio)
-# ca-certificates needed for HTTPS/SSL
+# Install system dependencies
+# Using full image, but ensure ffmpeg is there.
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     git \
-    ca-certificates \
+    dnsutils \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# Upgrade yt-dlp to ensure latest extractors
 RUN pip install --upgrade yt-dlp
 
 COPY . .
 
-# Create a user to avoid running as root (Good practice for HF Spaces)
+# Create a user
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
