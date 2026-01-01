@@ -232,16 +232,16 @@
                 let progress = 0;
                 const progressInterval = setInterval(() => {
                     if (progress < 90) {
-                        progress += Math.floor(Math.random() * 5) + 1;
+                        progress += Math.floor(Math.random() * 15) + 5; // Faster increments (5-20%)
                         // Update last log line if it exists and is a progress line
                         const lastLog = logContent.lastElementChild;
                         if (lastLog && lastLog.textContent.includes('Converting:')) {
-                            lastLog.innerHTML = `<span class="text-gray-500">[${new Date().toLocaleTimeString()}]</span> > Converting: [${'='.repeat(Math.floor(progress / 5))}${' '.repeat(20 - Math.floor(progress / 5))}] ${progress}%`;
+                            lastLog.innerHTML = `<span class="text-gray-500">[${new Date().toLocaleTimeString()}]</span> > Converting: [${'='.repeat(Math.floor(progress / 5))}${' '.repeat(20 - Math.floor(progress / 5))}] ${Math.min(99, progress)}%`;
                         } else {
-                            addLog(`> Converting: [${'='.repeat(Math.floor(progress / 5))}${' '.repeat(20 - Math.floor(progress / 5))}] ${progress}%`);
+                            addLog(`> Converting: [${'='.repeat(Math.floor(progress / 5))}${' '.repeat(20 - Math.floor(progress / 5))}] ${Math.min(99, progress)}%`);
                         }
                     }
-                }, 800);
+                }, 300); // Faster updates (300ms)
             }
 
             try {
