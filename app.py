@@ -58,22 +58,36 @@ async def get_formats(req: URLRequest):
                             'label': label,
                             'ext': f['ext'],
                             'filesize': f.get('filesize', 0),
-                            'quality': 'good' 
+                            'quality': 'good',
+                            'abr': 0
                         })
                     elif req.type == 'audio' and f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                         abr = f.get('abr', 0) or 0
                         q_tag = 'fair'
                         if abr >= 128: q_tag = 'good'
-                        if abr >= 192: q_tag = 'excellent'
-                        label = f"{int(abr)}kbps ({f.get('ext')})"
+                        if abr >= 160: q_tag = 'excellent'
+                        label = f"{int(abr)}kbps ({f.get('ext')}) - {f.get('acodec', '')}"
                         formats.append({
                             'format_id': f['format_id'],
                             'label': label,
                             'ext': f['ext'],
-                            'quality': q_tag
+                            'quality': q_tag,
+                            'abr': abr
                         })
             
-            formats.reverse()
+            # Sort by bitrate (highest first)
+            formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
+            
+            # Add "Best Audio" option at the top for audio
+            if req.type == 'audio' and formats:
+                formats.insert(0, {
+                    'format_id': 'bestaudio',
+                    'label': '⭐ BEST AUDIO (Auto-Select Highest)',
+                    'ext': 'm4a',
+                    'quality': 'excellent',
+                    'abr': 999
+                })
+            
             return {"formats": formats, "title": info.get('title', 'Video')}
             
     except Exception as e:
