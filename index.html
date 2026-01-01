@@ -119,9 +119,8 @@
     <script>
         lucide.createIcons();
 
-        // Backend URL - TO BE UPDATED when Railway backend is live
-        // For now, show offline message
-        const API_BASE = null; // Set to your Railway URL when ready
+        // Backend URL - Railway
+        const API_BASE = 'https://web-production-4926.up.railway.app';
 
         let currentType = 'video';
 
@@ -129,7 +128,7 @@
             currentType = type;
             const btnVideo = document.getElementById('btnVideo');
             const btnAudio = document.getElementById('btnAudio');
-            
+
             if (type === 'video') {
                 btnVideo.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-purple-500 text-white shadow-lg border border-purple-400";
                 btnAudio.className = "flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all bg-white/10 text-white hover:bg-white/20 border border-white/10";
@@ -148,7 +147,7 @@
                 showStatus('error', '🔧 Backend is being migrated. HuggingFace blocks YouTube access. Railway deployment coming soon!');
                 return;
             }
-            
+
             const url = document.getElementById('urlInput').value;
             if (!url) return showStatus('error', 'Please enter a URL');
 
@@ -157,7 +156,7 @@
             try {
                 const res = await fetch(`${API_BASE}/formats`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, type: currentType })
                 });
                 const data = await res.json();
